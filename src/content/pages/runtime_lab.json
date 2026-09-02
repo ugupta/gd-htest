@@ -1,18 +1,18 @@
 {
   "eyebrow": "Hosting Runtime Lab",
   "title": "Runtime diagnostics",
-  "description": "Inspect safe runtime signals and run controlled server-side probes.",
+  "description": "Inspect the server and deliberately exercise memory, CPU, and request limits.",
   "cards": [
     {
       "id": "S0ssbeftWjIDqRaadKz9s",
       "title": "Environment variables",
-      "body": "Returns a safe set of non-sensitive runtime settings.",
+      "body": "Prints every server environment variable.",
       "action": "Print environment variables"
     },
     {
       "id": "btOHeHl1ePPQYlSvZ7RVR",
       "title": "In-memory cache",
-      "body": "Creates one process-local 10 KB entry for every unique key.",
+      "body": "Retains 10 MiB per block in one runtime; use multiple blocks to find its memory limit.",
       "action": "Store cache entry"
     },
     {
@@ -24,7 +24,7 @@
     {
       "id": "DiwiimLaAuBRwhbuxpWnq",
       "title": "Prime-number stress test",
-      "body": "Computes up to 10 million primes entirely on the server.",
+      "body": "Generates the first N primes server-side with no application timeout or maximum.",
       "action": "Run prime test"
     }
   ],

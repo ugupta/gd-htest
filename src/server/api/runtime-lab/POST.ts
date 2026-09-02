@@ -1,91 +1,120 @@
 import type { Request, Response } from 'express';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import os from 'node:os';
+import { performance } from 'node:perf_hooks';
 
+const CACHE_VALUE_BYTES = 10 * 1024 * 1024;
 const cache = new Map<string, string>();
-const ENTRY_BYTES = 10 * 1024;
-const MAX_CACHE_ENTRIES = 100;
-const MAX_PRIME_COUNT = 10_000_000;
+const runtimeInstanceId = randomUUID();
 
-function cacheSize(): number {
-  return cache.size * ENTRY_BYTES;
+function addCacheEntries(key: string, blocks: number) {
+  let entriesAdded = 0;
+  let valuePreview = '';
+
+  for (let index = 0; index < blocks; index += 1) {
+    const entryKey = blocks === 1 ? key : `${key}:${index + 1}`;
+    if (!cache.has(entryKey)) {
+      cache.set(entryKey, randomBytes(CACHE_VALUE_BYTES / 2).toString('hex'));
+      entriesAdded += 1;
+    }
+    if (!valuePreview) valuePreview = `${cache.get(entryKey)!.slice(0, 64)}…`;
+  }
+
+  return {
+    key,
+    requestedBlocks: blocks,
+    entriesAdded,
+    valuePreview,
+    entrySizeBytes: CACHE_VALUE_BYTES,
+    entryCount: cache.size,
+    approximateCacheBytes: cache.size * CACHE_VALUE_BYTES,
+    runtimeInstanceId,
+  };
 }
 
-function primes(count: number): number[] {
-  const result: number[] = [];
+function generatePrimes(count: number) {
+  const primes: number[] = [];
   let candidate = 2;
-  while (result.length < count) {
+  while (primes.length < count) {
     let isPrime = true;
-    for (let i = 2; i * i <= candidate; i += 1) {
-      if (candidate % i === 0) {
+    const limit = Math.sqrt(candidate);
+    for (const prime of primes) {
+      if (prime > limit) break;
+      if (candidate % prime === 0) {
         isPrime = false;
         break;
       }
     }
-    if (isPrime) result.push(candidate);
-    candidate += 1;
+    if (isPrime) primes.push(candidate);
+    candidate = candidate === 2 ? 3 : candidate + 2;
   }
-  return result;
+  return primes;
 }
 
 export default async function handler(req: Request, res: Response) {
-  const { action, key, count } = req.body as { action?: string; key?: string; count?: unknown };
+  const { action, key, blocks, count } = req.body as {
+    action?: string;
+    key?: unknown;
+    blocks?: unknown;
+    count?: unknown;
+  };
 
   if (action === 'environment') {
-    const visible = Object.entries(process.env)
-      .filter(([name]) => ['NODE_ENV', 'PORT', 'HOSTNAME', 'TZ'].includes(name))
-      .reduce<Record<string, string>>((acc, [name, value]) => {
-        acc[name] = value ?? '';
-        return acc;
-      }, {});
-    res.json({ environment: visible, note: 'Only non-sensitive runtime settings are available.' });
+    res.json(Object.fromEntries(Object.entries(process.env).sort(([a], [b]) => a.localeCompare(b))));
     return;
   }
 
   if (action === 'system') {
+    const cpus = os.cpus();
     res.json({
       hostname: os.hostname(),
-      os: `${os.type()} ${os.release()}`,
+      platform: os.platform(),
+      release: os.release(),
       architecture: os.arch(),
-      runtime: process.version,
+      nodeVersion: process.version,
       processId: process.pid,
-      uptimeSeconds: Math.round(process.uptime()),
-      cpus: os.cpus().map((cpu) => ({ model: cpu.model, speedMHz: cpu.speed })),
+      uptimeSeconds: Math.floor(process.uptime()),
+      cpuCount: cpus.length,
+      cpuModel: cpus[0]?.model ?? 'unknown',
       loadAverage: os.loadavg(),
-      memory: { totalBytes: os.totalmem(), freeBytes: os.freemem(), process: process.memoryUsage() },
+      totalMemoryBytes: os.totalmem(),
+      freeMemoryBytes: os.freemem(),
+      processMemoryBytes: process.memoryUsage(),
+      runtimeInstanceId,
     });
     return;
   }
 
   if (action === 'cache') {
-    if (!key || !/^[a-zA-Z0-9:_-]{1,80}$/.test(key)) {
-      res.status(400).json({ error: 'Use a cache key of 1–80 letters, numbers, colons, underscores, or hyphens.' });
+    const cacheKey = typeof key === 'string' ? key.trim() : '';
+    const requestedBlocks = Number(blocks ?? 1);
+    if (!cacheKey) {
+      res.status(400).json({ error: 'Key is required.' });
       return;
     }
-    const existed = cache.has(key);
-    if (!existed && cache.size >= MAX_CACHE_ENTRIES) {
-      res.status(429).json({ error: 'The diagnostic cache is full. Restart the server to clear its process-local entries.' });
+    if (!Number.isSafeInteger(requestedBlocks) || requestedBlocks < 1) {
+      res.status(400).json({ error: 'Blocks must be a positive integer.' });
       return;
     }
-    if (!existed) cache.set(key, randomBytes(ENTRY_BYTES * 0.75).toString('base64'));
-    const value = cache.get(key)!;
-    res.json({ key, preview: `${value.slice(0, 24)}…`, entryCount: cache.size, entrySizeBytes: ENTRY_BYTES, approximateTotalBytes: cacheSize(), alreadyExisted: existed });
+    res.json(addCacheEntries(cacheKey, requestedBlocks));
     return;
   }
 
   if (action === 'primes') {
-    const requested = typeof count === 'number' ? count : Number(count);
-    if (!Number.isInteger(requested) || requested < 1) {
-      res.status(400).json({ error: 'Enter a positive whole number.' });
+    const requested = Number(count);
+    if (!Number.isSafeInteger(requested) || requested < 1) {
+      res.status(400).json({ error: 'N must be a positive integer.' });
       return;
     }
-    if (requested > MAX_PRIME_COUNT) {
-      res.status(400).json({ error: `For service reliability, this lab supports up to ${MAX_PRIME_COUNT.toLocaleString()} primes per request.` });
-      return;
-    }
-    const started = performance.now();
-    const result = primes(requested);
-    res.json({ count: result.length, durationMs: Math.round(performance.now() - started), largestPrime: result.at(-1), first10: result.slice(0, 10), last10: result.slice(-10) });
+    const startedAt = performance.now();
+    const primes = generatePrimes(requested);
+    res.json({
+      count: primes.length,
+      durationMs: Math.round(performance.now() - startedAt),
+      largestPrime: primes.at(-1),
+      firstTen: primes.slice(0, 10),
+      lastTen: primes.slice(-10),
+    });
     return;
   }
 
