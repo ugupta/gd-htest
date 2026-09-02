@@ -1,0 +1,10 @@
+{
+  "hero": {
+    "label": "Index / 001",
+    "title": "Hello, world.",
+    "support": "A small beginning, clearly made.",
+    "footerNote": "02 September 2026",
+    "linkLabel": "Keep moving",
+    "linkHref": "#beginning"
+  }
+}

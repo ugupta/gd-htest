@@ -1,0 +1,37 @@
+{
+  "eyebrow": "Hosting Runtime Lab",
+  "title": "Runtime diagnostics",
+  "description": "Inspect safe runtime signals and run controlled server-side probes.",
+  "cards": [
+    {
+      "id": "S0ssbeftWjIDqRaadKz9s",
+      "title": "Environment variables",
+      "body": "Returns a safe set of non-sensitive runtime settings.",
+      "action": "Print environment variables"
+    },
+    {
+      "id": "btOHeHl1ePPQYlSvZ7RVR",
+      "title": "In-memory cache",
+      "body": "Creates one process-local 10 KB entry for every unique key.",
+      "action": "Store cache entry"
+    },
+    {
+      "id": "rbcIypLDy5QTPkvOSHii4",
+      "title": "System information",
+      "body": "Returns server and process-level health metadata.",
+      "action": "Print system information"
+    },
+    {
+      "id": "DiwiimLaAuBRwhbuxpWnq",
+      "title": "Prime-number stress test",
+      "body": "Computes up to 10 million primes entirely on the server.",
+      "action": "Run prime test"
+    }
+  ],
+  "cacheLabel": "Cache key",
+  "cachePlaceholder": "e.g. session:sample",
+  "primeLabel": "Number of primes",
+  "primePlaceholder": "e.g. 5000",
+  "outputTitle": "JSON output",
+  "idleMessage": "Choose a diagnostic to view its result here."
+}

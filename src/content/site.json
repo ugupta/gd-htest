@@ -1,0 +1,15 @@
+{
+  "brandName": "Hello World",
+  "navigation": [
+    {
+      "label": "Beginning",
+      "href": "#beginning",
+      "id": "YcfjB0k18x_pf94wBDTvc"
+    }
+  ],
+  "footerLink": {
+    "label": "Start again",
+    "href": "#beginning"
+  },
+  "copyright": "© 2026 Hello World"
+}
